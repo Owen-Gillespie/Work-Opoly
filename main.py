@@ -2,6 +2,7 @@ import pickle
 import os.path
 import datetime
 import random
+import time
 from trello.trelloclient import TrelloClient 
 from trello.util import create_oauth_token
 
@@ -78,15 +79,20 @@ class Game:
 			self.move(roll)
 
 	def move(self, roll):
+		board_length = len(self.game_state.board)
 		new_location = self.game_state.board_location + roll
-		if new_location >= self.game_state.board_length:
+		if new_location >= board_length:
 			self.game_state.credits+=200
-			self.game_state.board_location = new_location % game_state.board_length
+			self.game_state.board_location = new_location % board_length
 		else:
 			self.game_state.board_location = new_location
 		print("Board location:{}".format(self.game_state.board_location))
 		self.game_state.print_board()
-
+		try:
+			self.game_state.board[self.game_state.board_location].function()
+		except AttributeError as e:
+			print("Error! Function not yet implemented for {}".format(self.game_state.board[self.game_state.board_location]))
+			print(e)
 class GameState:
 
 	def __init__(self, name, trello_client, trello_board):
@@ -96,34 +102,117 @@ class GameState:
 		self.last_play = datetime.datetime.now()
 		self.name = name
 		self.board_location = 0
-		self.board_names = ["Home", "1 Small Chore", "15 Minutes of Homework", "10 Minute Workout", "Academic Probation (Just visiting)", "2 Small Chores",
-								"30 Minute of Homework", "100 Credits", "South Lounge", "1 Medium Chore", "45 Minutes of Homework", "Go on a Run",
-								"Go to Academic Probation", "1 Large Chore", "60 Minutes of Homework", "30 Minutes of Work on This!"]
-		self.board_length = len(self.board_names)
-		self.board_functions = [x for x in range(self.board_length)]
+		self.board = [CreditsProperty("Shower Suite", 200,self),
+						ChoreProperty("Short Chore", 5, self.trello_board),
+						HomeworkProperty("Short HW", 15, self.trello_board),
+						WorkoutProperty("Short Workout",10),
+						"Academic Probation (Just visiting)",
+						ChoreProperty("2 Short Chores", 10, self.trello_board),
+						HomeworkProperty("Medium HW", 30, self.trello_board),
+						CreditsProperty("100 Credits!",100,self),
+						CreditsProperty("South Lounge", random.randrange(1,100),self),
+						ChoreProperty("Medium Chore", 15, self.trello_board), 
+						HomeworkProperty("Long HW", 45, self.trello_board),
+						"Go on a Run",
+						"Go to Academic Probation", 
+						ChoreProperty("Large Chore", 30, self.trello_board),
+						HomeworkProperty("Huge HW", 60, self.trello_board),
+						"30 Minutes of Work on This!"]
 
 	def print_board(self):
-		arrows = ["-->" if x==self.board_location else "   " for x in range(self.board_length)]
+		arrows = ["-->" if x==self.board_location else "   " for x in range(len(self.board))]
 
-		for i in range(self.board_length):
-			print(arrows[i],self.board_names[i])
+		for i in range(len(self.board)):
+			print(arrows[i],self.board[i])
 		print("Credits:{}".format(self.credits))
+
+
 
 class Property:
 	def __init__(self, name):
 		self.name = name
 
-class HomeworkProperty(Property):
-	def __init__(self, time):
-		self.name = name
-		self.value = time
-		self.function = self.find_homework
+	def __repr__(self):
+		return self.name
 
+class CardWithLabelProperty(Property):
+	def __init__(self, name, time, board):
+		super().__init__(name)
+		self.time = time
+		self.board = board
+		self.activity = ""
 
-	def find_homework(self, client):
-		all_cards = client.all_cards()
+	def assignCard(self, card):
+		if card is not None:
+			print("Time to spend {} minutes on {}!".format(self.time, self.activity))
+			print("Spend {} minutes doing '{}' and the come back to roll again!".format(self.time, card.name))
+			time.sleep(.01 * self.time)
+			while True:
+				reply = input("Did you finish the assignment? (y/n): ")
+				if (reply=="yes" or reply=="y"):
+					card.delete()
+					break
+				elif(reply=="n" or reply == "no"):
+					break
+
+	def getCards(self):
+		print(self.label)
+		all_cards = self.board.all_cards()
+		selected_cards = []
 		for card in all_cards:
-			print card.labels
+			for label in card.labels:
+				if label.name == self.label:
+					selected_cards.append(card)
+		return selected_cards
+
+class HomeworkProperty(CardWithLabelProperty):
+	def __init__(self,name, time, board):
+		super().__init__(name, time, board)
+		self.function = self.assignHomework
+		self.activity = "homework"
+		self.label = "Homework"
+
+	def assignHomework(self):
+		homework_cards = self.getCards()
+		homework_cards = [card for card in homework_cards if card.due_date!='']
+		homework_cards = sorted(homework_cards, key=lambda x: x.due_date)
+		self.assignCard(homework_cards[0])
+
+class ChoreProperty(CardWithLabelProperty):
+	def __init__(self, name, time, board):
+		super().__init__(name, time, board)
+		self.function = self.assignChore
+		self.activity = "chores"
+		self.label = "Chore"
+
+	def assignChore(self):
+		chores = self.getCards()
+		self.assignCard(random.choice(chores))
+
+
+class WorkoutProperty(Property):
+	def __init__(self, name, time):
+		super().__init__(name)
+		self.time = time
+		self.workouts = ["Core", "Upper Body", "Cardio", "Jump Cardio"]
+		self.function = self.doWorkout
+
+	def doWorkout(self):
+		print("Time to get some exercise!  Come back once you have spent at least {} minutes doing a {} workout".format(self.time, random.choice(self.workouts)))
+		time.sleep(self.time * 60)
+		print("Done working out! Time to roll again")
+
+class CreditsProperty(Property):
+	def __init__(self, name, amount, state):
+		super().__init__(name)
+		self.amount = amount
+		self.state = state
+		self.function = self.changeCredits
+
+	def changeCredits(self):
+		self.state.credits += self.amount
+		print("Congrats! You got {} credits!".format(self.amount))
+
 
 if __name__ == '__main__':
 	game = Game()
