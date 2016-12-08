@@ -106,18 +106,18 @@ class GameState:
 						ChoreProperty("Short Chore", 5, self.trello_board),
 						HomeworkProperty("Short HW", 15, self.trello_board),
 						WorkoutProperty("Short Workout",10),
-						"Academic Probation (Just visiting)",
+						ChillProperty("Academic Probation", "What a scary place! I hope I never go here", 0),
 						ChoreProperty("2 Short Chores", 10, self.trello_board),
 						HomeworkProperty("Medium HW", 30, self.trello_board),
 						CreditsProperty("100 Credits!",100,self),
 						CreditsProperty("South Lounge", random.randrange(1,100),self),
 						ChoreProperty("Medium Chore", 15, self.trello_board), 
 						HomeworkProperty("Long HW", 45, self.trello_board),
-						"Go on a Run",
-						"Go to Academic Probation", 
+						ChillProperty("Take a Run", "Go out for a run, and come back in at least 20 minutes!", 20),
+						GoToProperty("Go to Academic Probation", "Academic Probation", "You put the fail in pass fail! Go to Academic Probation!", self), 
 						ChoreProperty("Large Chore", 30, self.trello_board),
 						HomeworkProperty("Huge HW", 60, self.trello_board),
-						"30 Minutes of Work on This!"]
+						ChillProperty("Work on Work-Opoly!", "Think of the functions you wish you had", 30)]
 
 	def print_board(self):
 		arrows = ["-->" if x==self.board_location else "   " for x in range(len(self.board))]
@@ -199,7 +199,7 @@ class WorkoutProperty(Property):
 
 	def doWorkout(self):
 		print("Time to get some exercise!  Come back once you have spent at least {} minutes doing a {} workout".format(self.time, random.choice(self.workouts)))
-		time.sleep(self.time * 60)
+		time.sleep(self.time * .01)
 		print("Done working out! Time to roll again")
 
 class CreditsProperty(Property):
@@ -212,6 +212,39 @@ class CreditsProperty(Property):
 	def changeCredits(self):
 		self.state.credits += self.amount
 		print("Congrats! You got {} credits!".format(self.amount))
+
+class ChillProperty(Property):
+	def __init__(self, name, message, timer):
+		super().__init__(name)
+		self.message = message
+		self.timer = timer
+		self.function = self.sendMessage
+
+	def sendMessage(self):
+		print(self.message)
+		if(self.timer!=0):
+			time.sleep(self.timer * .01)
+			print("Done!")
+
+class GoToProperty(Property):
+	def __init__(self, name, destName, message, state):
+		super().__init__(name)
+		self.destName = destName
+		self.message = message
+		self.state = state
+		self.function = self.goToDest
+
+
+	def goToDest(self):
+		print(self.message)
+		destIndex = -1
+		for index, spot in enumerate(self.state.board):
+			if spot.name == self.destName:
+				destIndex = index
+				break
+
+		if (destIndex != -1):
+			self.state.board_location = destIndex
 
 
 if __name__ == '__main__':
