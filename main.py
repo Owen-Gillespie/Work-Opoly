@@ -74,25 +74,10 @@ class Game:
 			if (player_input=="q"):
 				self.save_game()
 				break
-			roll = random.randrange(1,5) + random.randrange(1,5)
-			print("You rolled a {}".format(roll))
-			self.move(roll)
+			if (player_input == ""):
+				self.game_state.move()
 
-	def move(self, roll):
-		board_length = len(self.game_state.board)
-		new_location = self.game_state.board_location + roll
-		if new_location >= board_length:
-			self.game_state.credits+=200
-			self.game_state.board_location = new_location % board_length
-		else:
-			self.game_state.board_location = new_location
-		print("Board location:{}".format(self.game_state.board_location))
-		self.game_state.print_board()
-		try:
-			self.game_state.board[self.game_state.board_location].function()
-		except AttributeError as e:
-			print("Error! Function not yet implemented for {}".format(self.game_state.board[self.game_state.board_location]))
-			print(e)
+
 class GameState:
 
 	def __init__(self, name, trello_client, trello_board):
@@ -125,6 +110,29 @@ class GameState:
 		for i in range(len(self.board)):
 			print(arrows[i],self.board[i])
 		print("Credits:{}".format(self.credits))
+
+	def move_piece(self, distance):
+		board_length = len(self.board)
+		new_location = self.board_location + distance
+		if new_location >= board_length:
+			self.credits+=200
+			self.board_location = new_location % board_length
+		else:
+			self.board_location = new_location
+
+	def land_on_square(self):
+		self.board[self.board_location].function()
+
+	def move(self, roll1=None, roll2 = None):
+		if roll1 == None:
+			roll1 = random.randrange(1,5)
+		if roll2 == None:
+			roll2 = random.randrange(1,5)
+	
+		print("You rolled a {} and a {} for a total of {}".format(roll1, roll2, roll1 + roll2))
+		self.move_piece(roll1 + roll2)
+		self.print_board()
+		self.land_on_square()
 
 
 
@@ -177,6 +185,34 @@ class HomeworkProperty(CardWithLabelProperty):
 		homework_cards = [card for card in homework_cards if card.due_date!='']
 		homework_cards = sorted(homework_cards, key=lambda x: x.due_date)
 		self.assignCard(homework_cards[0])
+
+class JailProperty(HomeworkProperty):
+	def __init__(self,name,board, game_state):
+		super().__init__(name, 30, board)
+		self.function
+		self.state = game_state
+		self.turns_left = 3
+
+	def inJail(self):
+		while self.turns_left > 0:
+			while True:
+				choice = input("Do you want to try to roll out of AP? (y/n):")
+				if choice == "y" or choice == "n":
+					break
+			if choice == "y":
+				roll1 = random.randrange(1,5)
+				roll2 = random.randrange(1,5)
+				if roll1 == roll2:
+					self.turns_left = 0
+					self.state.move(roll1, roll2)
+				else:
+					self.turns_left -= 1
+					self.assignHomework()
+			else:
+				self.turns_left -=2
+				self.assignHomework()
+
+
 
 class ChoreProperty(CardWithLabelProperty):
 	def __init__(self, name, time, board):
@@ -245,6 +281,7 @@ class GoToProperty(Property):
 
 		if (destIndex != -1):
 			self.state.board_location = destIndex
+			self.state.land_on_square()
 
 
 if __name__ == '__main__':
