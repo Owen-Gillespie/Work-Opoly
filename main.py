@@ -75,6 +75,7 @@ class Game:
 				self.save_game()
 				break
 			if (player_input == ""):
+				print("moving")
 				self.game_state.move()
 
 
@@ -99,7 +100,7 @@ class GameState:
 						ChoreProperty("Medium Chore", 15, self.trello_board), 
 						HomeworkProperty("Long HW", 45, self.trello_board),
 						ChillProperty("Take a Run", "Go out for a run, and come back in at least 20 minutes!", 20),
-						GoToProperty("Go to Academic Probation", "Academic Probation", "You put the fail in pass fail! Go to Academic Probation!", self), 
+						JailProperty("Academic Probation", self), 
 						ChoreProperty("Large Chore", 30, self.trello_board),
 						HomeworkProperty("Huge HW", 60, self.trello_board),
 						ChillProperty("Work on Work-Opoly!", "Think of the functions you wish you had", 30)]
@@ -187,11 +188,12 @@ class HomeworkProperty(CardWithLabelProperty):
 		self.assignCard(homework_cards[0])
 
 class JailProperty(HomeworkProperty):
-	def __init__(self,name,board, game_state):
-		super().__init__(name, 30, board)
+	def __init__(self,name, game_state):
+		super().__init__(name, 30, game_state.trello_board)
 		self.function
 		self.state = game_state
 		self.turns_left = 3
+		self.function = self.inJail
 
 	def inJail(self):
 		while self.turns_left > 0:
@@ -202,6 +204,7 @@ class JailProperty(HomeworkProperty):
 			if choice == "y":
 				roll1 = random.randrange(1,5)
 				roll2 = random.randrange(1,5)
+				print("You rolled a {} and {}".format(roll1, roll2))
 				if roll1 == roll2:
 					self.turns_left = 0
 					self.state.move(roll1, roll2)
@@ -209,7 +212,7 @@ class JailProperty(HomeworkProperty):
 					self.turns_left -= 1
 					self.assignHomework()
 			else:
-				self.turns_left -=2
+				self.turns_left -= 2
 				self.assignHomework()
 
 
